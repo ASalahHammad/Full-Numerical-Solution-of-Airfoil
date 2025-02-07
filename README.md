@@ -1,7 +1,6 @@
-# Source-Vortex Panels Method & Pohlhausen Method to solve Airfoil
+# Source-Vortex Panels Method & Momentum Integral based Methods to solve Airfoil
 
-The main goal of this project is to conduct a quick airfoil analysis that can be used in preliminary design, first a potential flow problem is solved using source-vortex panels method to obtain lift coefficient and moment coefficient around quarter chord (c/4), then, Pohlhausen method is applied using the resulting external velocity from panels method to solve boundary layer problem and determine drag.
-Up until now, the code only calculates laminar drag, it also predicts the transition point and separation point, but **no** model for turbulence is made.
+The main goal of this project is to conduct a quick airfoil analysis that can be used in preliminary design, first a potential flow problem is solved using source-vortex panels method to obtain lift coefficient and moment coefficient around quarter chord (c/4), then, Pohlhausen method is applied using the resulting external velocity from panels method to solve laminar boundary layer problem, head's method is then applied upon transition to turbulent flow.
 
 ## Dependencies
 - Octave/Matlab.
@@ -28,17 +27,30 @@ This is the main code that you should run, and it will run everything else autom
 ### SVPM.m
 Solves source vortex panels method, it solves a linear system of N equations, where N-1 is the number of panels on which a source is assumed to exist, and the last N-th equation comes from assuming a vortex with constant strength exists, also the last equation is the one used to impose the Kutta condition.
 
-### velocity.m
-This code is needed before solving the boundary layer problem, because B.L. problem needs exernal velocity to be known, the code interpolates the velocity values from panels method, then applies a **4th order central difference** to find the 1st and 2nd derivatives of velocity, which are needed by the pohlhausen method
-- CD-4 is used to reduce the high instabilities that occur when the grid points increase, specially at high angles of attack
+### boundary_layer.m
+- Solves Laminar Boundary Layer problem using pohlhausen numerical method, it calculates the values of B.L. thickness, displacement thickness, momentum thickness, shear stress, and local friction coefficient which can be then integrated over distance to find the total drag coefficient
+- Predicts the **Point of Transition**, and then switchs to turbulent boundary layer solving head's method using a 4th order runge-kutta scheme
+- Predict **Point of Separation** (either laminar or turbulent) and then terminate the code
 
-### pohlhausen.m
-- Solves Boundary Layer problem using pohlhausen numerical method, it calculates the values of B.L. thickness, displacement thickness, momentum thickness, shear stress, and local friction coefficient which can be then integrated over distance to find the total drag coefficient
-- Predicts the **Point of Transition**, but still continue to solve laminar flow
-- Predict **Point of Separation** and then terminate the code
+## RK4.m
+- Runge Kutta Scheme
 
-## Possible Future Work (ordered by priority)
-- Separation seems to usually happen early in the program
-- Implement the xfoil algorithm of making panels distribution, so that xfoil is no longer needed
-- Different panels distributions give very different results
-- Include code for solving turbulent boundary layer flow (Head's Method)
+## f_dot.m
+- The function that returns the derivatives of the state variables in Head's method, which are (theta and $Ue*theta*H$)
+
+## G.m
+- Function returns H1 from H
+
+## HofH1.m
+- The inversion of the H1=G(H) relation
+
+## F.m
+- A part of the differential equations that need to be solved in Head's method needs F(H1)
+
+## Issues & Possible Future Work
+- For boundary layer, some Results are not right, nevertheless, different from XFOIL.
+- Results at high angle of attack are so wrong.
+- Changing the velocity or chord length from unity causes problems, usually this needs to look carefully at normalization.
+- Implement the xfoil algorithm of discretizing the airfoil, so that xfoil is no longer needed.
+- Different panels distributions give very different results.
+
