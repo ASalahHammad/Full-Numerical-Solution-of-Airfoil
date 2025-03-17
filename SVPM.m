@@ -1,4 +1,4 @@
-function [CL, CD, CM, Vt, Vx, Vy, Vxy] = SVPM(XB, YB, XC, YC, Vinf, AoA, N, x_domain, y_domain)
+function [CL, CD, CM, Vt, Vx, Vy, Vxy, Cpxy] = SVPM(XB, YB, XC, YC, Vinf, AoA, N, x_domain, y_domain)
 
 if nargin == 8
     error("x_domain and y_domain must coexist");
@@ -105,32 +105,40 @@ CM = sum(Cp .* (XC-0.25).*S.*cos(phi));
 Vx = zeros(size(x_domain));
 Vy = zeros(size(y_domain));
 
-%% Compute N matrices
-for i=1:length(Vx)
-  XP = x_domain(i);
-  if y_domain(i)>=0
-    YP = y_domain(i) + 0.000001;
-  else
-    YP = y_domain(i) - 0.000001;
+%% Compute M & N matrices
+for j=1:size(Vx, 2)
+  for i=1:size(Vx, 1)
+    XP = x_domain(i, j);
+    YP = y_domain(i, j);
+    [in, on] = inpolygon(XP, YP, XB, YB);
+    if(in)
+      continue;
+    end
+    A = -(XP - XB(1:num_panels)).*cos(phi) - (YP - YB(1:num_panels)).*sin(phi);
+    B = (XP - XB(1:num_panels)).^2 + (YP - YB(1:num_panels)).^2;
+    Cx = -cos(phi);
+    Cy = -sin(phi);
+    Dx = (XP - XB(1:num_panels));
+    Dy = (YP - YB(1:num_panels));
+    E = sqrt(B-A.^2);
+    E = E*(isreal(E));
+    Mx = Cx/2.*log((S.^2+2*A.*S+B)./B) + (Dx-A.*Cx)./E.*(atan2((S+A), E) - atan2(A, E));
+    My = Cy/2.*log((S.^2+2*A.*S+B)./B) + (Dy-A.*Cy)./E.*(atan2((S+A), E) - atan2(A, E));
+
+    Cx = sin(phi);
+    Cy = -cos(phi);
+    Dx = -(YP - YB(1:num_panels));
+    Dy = (XP - XB(1:num_panels));
+    Nx = Cx/2.*log((S.^2+2*A.*S+B)./B) + (Dx-A.*Cx)./E.*(atan2((S+A), E) - atan2(A, E));
+    Ny = Cy/2.*log((S.^2+2*A.*S+B)./B) + (Dy-A.*Cy)./E.*(atan2((S+A), E) - atan2(A, E));
+
+    Vx(i, j) = Vinf*cos(AoA) + sum(lambda.*Mx./(2*pi)) - sum(gamma.*Nx)/2/pi;
+    Vy(i, j) = Vinf*sin(AoA) + sum(lambda.*My./(2*pi)) - sum(gamma.*Ny)/2/pi;
   end
-
-  A = -(XP - XB(1:num_panels)).*cos(phi) - (YP - YB(1:num_panels)).*sin(phi);
-  B = (XP - XB(1:num_panels)).^2 + (YP - YB(1:num_panels)).^2;
-  Cx = sin(phi);
-  Dx = -(YP - YB(1:num_panels));
-  Cy = -cos(phi);
-  Dy = (XP - XB(1:num_panels));
-  E = sqrt(B-A.^2);
-  E = E*(isreal(E));
-  Nx = Cx/2.*log((S.^2+2*A.*S+B)./B) + (Dx-A.*Cx)./E.*(atan2((S+A), E) - atan2(A, E));
-  Ny = Cy/2.*log((S.^2+2*A.*S+B)./B) + (Dy-A.*Cy)./E.*(atan2((S+A), E) - atan2(A, E));
-
-  Vx(i) = Vinf*cos(AoA) - sum(gamma.*Nx)/2/pi;
-  Vy(i) = Vinf*sin(AoA) - sum(gamma.*Ny)/2/pi;
 end
 
 Vxy = sqrt(Vx.^2 + Vy.^2);
-CpXY = 1 - (Vxy/Vinf).^2;
+Cpxy = 1 - (Vxy/Vinf).^2;
 
 end % endfunction
 

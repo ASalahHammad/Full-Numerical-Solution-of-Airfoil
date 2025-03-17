@@ -4,18 +4,21 @@ close all
 
 tic;
 
+%% plot y\n
+plot_flag = 'y';
+
 %% Given
 Vinf = 1;  % Freestream velocity
 AoA = 0*pi/180;  % Angle of attack [rad]
 
 %% Load Airfoil
-airfoil_name = "naca2412";
+airfoil_name = "naca2412"; % only naca 4-digit
 fprintf("====================== Potential Flow ======================\n");
 figure; hold on; grid on;
-for N_B = [100,200] % Number of boundary points
+for N_B = [100] % Number of boundary points
     [XB, YB] = LOAD_AIRFOIL(airfoil_name, rad2deg(AoA), N_B, true, "xfoil");
     num_panels = N_B - 1;
-    
+
     % check cw or ccw
     edges = zeros(num_panels, 1);
     edges(1:num_panels) = (XB(2:N_B)-XB(1:N_B-1)) .* (YB(2:N_B)+YB(1:N_B-1));
@@ -23,13 +26,20 @@ for N_B = [100,200] % Number of boundary points
         XB = flipud(XB);
         YB = flipud(YB);
     end
-    
+
     % Centre of Panels
     XC = (XB(2:N_B)+XB(1:N_B-1))/2;
     YC = (YB(2:N_B)+YB(1:N_B-1))/2;
-    
-    [CL, CD, CM, Vt, Vx, Vy, Vxy] = SVPM(XB, YB, XC, YC, Vinf, AoA, N_B, [], []);
-    
+
+    if(plot_flag)
+      [X_contour, Y_contour] = meshgrid(-1:0.05:2, -1:0.05:1);
+    else
+      X_contour = [];
+      Y_contour = [];
+    end
+    [CL, CD, CM, Vt, Vx, Vy, Vxy, Cpxy] = SVPM(XB, YB, XC, YC, Vinf, AoA, N_B, X_contour, Y_contour);
+
+    Cp = 1-(Vt/Vinf).^2;
     plot(N_B, CL, "x", "LineWidth", 2);
     plot(N_B, CM, "o", "LineWidth", 2);
 
@@ -75,7 +85,7 @@ for N = 10:10:100
     U_l = interp1(XC_l, V_l/Vinf, x, "spline", "extrap"); % Velocity should be normalized
     U_d_l = gradient(U_l, x);
     ans_lower = boundary_layer(x, U_l, U_d_l, ReL, nu);
-    
+
     % Calculate Drag
     % This needs fixing because you might need to check normalization
     cf_u = ans_upper.data(:, find(cellfun(@(entry) isequal(entry, "cf"), ans_upper.names)));
@@ -108,22 +118,35 @@ fprintf("\n\nTotal Drag Coefficient CD = %f\n", CD);
 toc;
 
 %% Figures
-figure; hold on; grid on; xlabel("$x$", 'interpreter', 'latex', 'FontSize', 15); ylabel("$U_e$", 'Interpreter', 'latex', 'FontSize', 15);
-plot(x, U_u); plot(x, U_l);
-legend("Upper", "Lower");
+if(strcmp(plot_flag, 'y'))
+  figure; hold on; grid on;
+  plot(XC, Cp);
+  xlabel("$x$", 'interpreter', 'latex', 'FontSize', 15); ylabel("$C_p (Airfoil)$", 'Interpreter', 'latex', 'FontSize', 15);
 
-figure; hold on; grid on; xlabel("$x$", 'interpreter', 'latex', 'FontSize', 15); ylabel("$\delta$", 'Interpreter', 'latex', 'FontSize', 15);
-plot(x, ans_upper.data(:, find(cellfun(@(entry) isequal(entry, "delta"), ans_upper.names)))); plot(x, ans_lower.data(:, find(cellfun(@(entry) isequal(entry, "delta"), ans_lower.names))));
-legend("Upper", "Lower");
+  figure; hold on; grid on;
+%  contourf(X_contour, Y_contour, Cpxy); colorbar;
+  contour(X_contour, Y_contour, Cpxy); colorbar;
+  fill(XB, YB, 'k');
+  xlabel("$x$", 'interpreter', 'latex', 'FontSize', 15); ylabel("$C_p$", 'Interpreter', 'latex', 'FontSize', 15);
 
-figure; hold on; grid on; xlabel("$x$", 'interpreter', 'latex', 'FontSize', 15); ylabel("$\delta_1$", 'Interpreter', 'latex', 'FontSize', 15);
-plot(x, ans_upper.data(:, find(cellfun(@(entry) isequal(entry, "delta_1"), ans_upper.names)))); plot(x, ans_lower.data(:, find(cellfun(@(entry) isequal(entry, "delta_1"), ans_lower.names))));
+  figure; hold on; grid on; xlabel("$x$", 'interpreter', 'latex', 'FontSize', 15); ylabel("$U_e$", 'Interpreter', 'latex', 'FontSize', 15);
+  plot(x, U_u); plot(x, U_l);
+  legend("Upper", "Lower");
 
-figure; hold on; grid on; xlabel("$x$", 'interpreter', 'latex', 'FontSize', 15); ylabel("$\delta_2$", 'Interpreter', 'latex', 'FontSize', 15);
-plot(x, ans_upper.data(:, find(cellfun(@(entry) isequal(entry, "delta_2"), ans_upper.names)))); plot(x, ans_lower.data(:, find(cellfun(@(entry) isequal(entry, "delta_2"), ans_lower.names))));
+  figure; hold on; grid on; xlabel("$x$", 'interpreter', 'latex', 'FontSize', 15); ylabel("$\delta$", 'Interpreter', 'latex', 'FontSize', 15);
+  plot(x, ans_upper.data(:, find(cellfun(@(entry) isequal(entry, "delta"), ans_upper.names)))); plot(x, ans_lower.data(:, find(cellfun(@(entry) isequal(entry, "delta"), ans_lower.names))));
+  legend("Upper", "Lower");
 
-figure; hold on; grid on; xlabel("$x$", 'interpreter', 'latex', 'FontSize', 15); ylabel("$C_f$", 'Interpreter', 'latex', 'FontSize', 15);
-plot(x, ans_upper.data(:, find(cellfun(@(entry) isequal(entry, "cf"), ans_upper.names)))); plot(x, ans_lower.data(:, find(cellfun(@(entry) isequal(entry, "cf"), ans_lower.names))));
+  figure; hold on; grid on; xlabel("$x$", 'interpreter', 'latex', 'FontSize', 15); ylabel("$\delta_1$", 'Interpreter', 'latex', 'FontSize', 15);
+  plot(x, ans_upper.data(:, find(cellfun(@(entry) isequal(entry, "delta_1"), ans_upper.names)))); plot(x, ans_lower.data(:, find(cellfun(@(entry) isequal(entry, "delta_1"), ans_lower.names))));
 
-figure; hold on; grid on; xlabel("$x$", 'interpreter', 'latex', 'FontSize', 15); ylabel("$\tau$", 'Interpreter', 'latex', 'FontSize', 15);
-plot(x, ans_upper.data(:, find(cellfun(@(entry) isequal(entry, "tau"), ans_upper.names)))); plot(x, ans_lower.data(:, find(cellfun(@(entry) isequal(entry, "tau"), ans_lower.names))));
+  figure; hold on; grid on; xlabel("$x$", 'interpreter', 'latex', 'FontSize', 15); ylabel("$\delta_2$", 'Interpreter', 'latex', 'FontSize', 15);
+  plot(x, ans_upper.data(:, find(cellfun(@(entry) isequal(entry, "delta_2"), ans_upper.names)))); plot(x, ans_lower.data(:, find(cellfun(@(entry) isequal(entry, "delta_2"), ans_lower.names))));
+
+  figure; hold on; grid on; xlabel("$x$", 'interpreter', 'latex', 'FontSize', 15); ylabel("$C_f$", 'Interpreter', 'latex', 'FontSize', 15);
+  plot(x, ans_upper.data(:, find(cellfun(@(entry) isequal(entry, "cf"), ans_upper.names)))); plot(x, ans_lower.data(:, find(cellfun(@(entry) isequal(entry, "cf"), ans_lower.names))));
+
+  figure; hold on; grid on; xlabel("$x$", 'interpreter', 'latex', 'FontSize', 15); ylabel("$\tau$", 'Interpreter', 'latex', 'FontSize', 15);
+  plot(x, ans_upper.data(:, find(cellfun(@(entry) isequal(entry, "tau"), ans_upper.names)))); plot(x, ans_lower.data(:, find(cellfun(@(entry) isequal(entry, "tau"), ans_lower.names))));
+end
+
